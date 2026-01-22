@@ -1,4 +1,4 @@
-function Reset-LabVMDisk {
+﻿function Reset-LabVMDisk {
 <#
     .SYNOPSIS
         Removes and resets lab VM disk file (VHDX) configuration.
@@ -18,6 +18,10 @@ function Reset-LabVMDisk {
         [Parameter(ValueFromPipelineByPropertyName)]
         [System.String] $NodeName = $Name,
 
+        ## Custom Master VHDX
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.Boolean] $OwnMasterVHDX = $false,
+
         ## Lab DSC configuration data
         [Parameter(ValueFromPipelineByPropertyName)]
         [System.Collections.Hashtable]
@@ -26,11 +30,13 @@ function Reset-LabVMDisk {
     )
     process {
 
-        $null = $PSBoundParameters.Remove('NodeName');
+        #$null = $PSBoundParameters.Remove('NodeName');
+        #$null = $PSBoundParameters.Remove('OwnMasterVHDX');
+        #Write-Debug -Message "custom master: $OwnMasterVHDX"
 
         Remove-LabVMSnapshot -Name $Name;
-        Remove-LabVMDisk -NodeName $NodeName @PSBoundParameters;
+        Remove-LabVMDisk @PSBoundParameters;
         Set-LabVMDisk @PSBoundParameters;
 
     } #end process
-} #end function
+}

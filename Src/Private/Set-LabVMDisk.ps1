@@ -1,4 +1,4 @@
-function Set-LabVMDisk {
+﻿function Set-LabVMDisk {
     <#
     .SYNOPSIS
         Sets a lab VM disk file (VHDX) configuration.
@@ -12,9 +12,17 @@ function Set-LabVMDisk {
         [Parameter(Mandatory, ValueFromPipeline)]
         [System.String] $Name,
 
+        ## VM/node name
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.String] $NodeName = $Name,
+
         ## Media Id
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [System.String] $Media,
+
+        ## Custom Master VHDX
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.Boolean] $OwnMasterVHDX = $false,
 
         ## Lab DSC configuration data
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -24,13 +32,29 @@ function Set-LabVMDisk {
     )
     process {
 
-        if ($PSBoundParameters.ContainsKey('ConfigurationData')) {
-
-            $image = Get-LabImage -Id $Media -ConfigurationData $ConfigurationData -ErrorAction Stop;
+        if ($OwnMasterVHDX) {
+            #skip get lab image, dirty fix
+            $vhdxName = "$($Media)_$($NodeName)"
+            $hostDefaults = Get-ConfigurationData -Configuration Host;
+            $vhdxBasePath = $hostDefaults.ParentVhdPath;
+            $image =
+            @{
+                "Id" = $Media
+                "ImagePath" = "${vhdxBasePath}\${vhdxName}.vhdx"
+                "Generation" = "VHDX"
+            }
         }
         else {
 
-            $image = Get-LabImage -Id $Media -ErrorAction Stop;
+            if ($PSBoundParameters.ContainsKey('ConfigurationData')) {
+
+                $image = Get-LabImage -Id $Media -ConfigurationData $ConfigurationData -ErrorAction Stop;
+            }
+            else {
+
+                $image = Get-LabImage -Id $Media -ErrorAction Stop;
+            }
+
         }
 
         $environmentName = $ConfigurationData.NonNodeData.$($labDefaults.ModuleName).EnvironmentName;
@@ -46,4 +70,4 @@ function Set-LabVMDisk {
         [ref] $null = Invoke-LabDscResource -ResourceName VHD -Parameters $vhd;
 
     } #end process
-} #end function
+}

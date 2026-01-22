@@ -1,4 +1,4 @@
-function Add-DiskImageHotfix {
+﻿function Add-DiskImageHotfix {
 <#
     .SYMOPSIS
         Adds a Windows update/hotfix package to an image.
@@ -42,7 +42,6 @@ function Add-DiskImageHotfix {
 
             $resolveLabMediaParams['ConfigurationData'] = $ConfigurationData;
         }
-        $media = Resolve-LabMedia @resolveLabMediaParams;
 
         foreach ($hotfix in $media.Hotfixes) {
 
@@ -66,4 +65,4 @@ function Add-DiskImageHotfix {
         }
 
     } #end process
-} #end function
+}

@@ -1,4 +1,4 @@
-function Test-LabImage {
+﻿function Test-LabImage {
 <#
     .SYNOPSIS
         Tests whether a master/parent lab image is present.
@@ -23,6 +23,10 @@ function Test-LabImage {
         [ValidateNotNullOrEmpty()]
         [System.String] $Id,
 
+        ## Custom Master VHDX
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.Boolean] $OwnMasterVHDX = $false,
+
         ## Lab DSC configuration data
         [Parameter(ValueFromPipelineByPropertyName)]
         [System.Collections.Hashtable]
@@ -32,13 +36,11 @@ function Test-LabImage {
     process {
 
         if (Get-LabImage @PSBoundParameters) {
-
             return $true;
         }
         else {
-
             return $false;
         }
 
     } #end process
-} #end function Test-LabImage
+}

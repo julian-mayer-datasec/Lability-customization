@@ -1,4 +1,4 @@
-function New-LabImage {
+﻿function New-LabImage {
 <#
     .SYNOPSIS
         Creates a new master/parent lab image.
@@ -41,30 +41,70 @@ function New-LabImage {
         [Microsoft.PowerShell.DesiredStateConfiguration.ArgumentToConfigurationDataTransformationAttribute()]
         $ConfigurationData,
 
+        # Commands to execute before applying .wim
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.Collections.Hashtable[]]
+        $CustomWIMCommands,
+
+        # Switch for disabling Windows Defender (needed for Win 11 24H2 or later.)
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.Boolean]
+        $DeleteDefender,
+
         ## Force the re(creation) of the master/parent image
         [Parameter(ValueFromPipelineByPropertyName)]
-        [System.Management.Automation.SwitchParameter] $Force
+        [System.Management.Automation.SwitchParameter] $Force,
+
+        ## CustomSuffix
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.String] $Suffix
     )
     process
     {
+
         ## Download media if required..
         [ref] $null = $PSBoundParameters.Remove('Force')
         [ref] $null = $PSBoundParameters.Remove('WhatIf')
         [ref] $null = $PSBoundParameters.Remove('Confirm')
+        [ref] $null = $PSBoundParameters.Remove('CustomWIMCommands')
+        [ref] $null = $PSBoundParameters.Remove('DeleteDefender')
+        [ref] $null = $PSBoundParameters.Remove('Suffix')
 
         $media = Resolve-LabMedia @PSBoundParameters
+
         ## Update media Id if alias was/is used
         $Id = $media.Id
+        $OriginalId = $Id
 
-        if ((Test-LabImage @PSBoundParameters) -and $Force)
-        {
-            $image = Get-LabImage @PSBoundParameters
-            Write-Verbose -Message ($localized.RemovingDiskImage -f $image.ImagePath)
-            [ref] $null = Remove-Item -Path $image.ImagePath -Force -ErrorAction Stop
+        if($Suffix){
+
+            $Id = $Id + "_" +  $Suffix
+
+            if ((Test-LabImage -Id $Id -OwnMasterVHDX $true) -and $Force) {
+                $image = Get-LabImage -Id $Id -OwnMasterVHDX $true
+                Write-Verbose -Message ($localized.RemovingDiskImage -f $image.ImagePath)
+                [ref] $null = Remove-Item -Path $image.ImagePath -Force -ErrorAction Stop
+            }
+            elseif (Test-LabImage -Id $Id -OwnMasterVHDX $true)
+            {
+                throw ($localized.ImageAlreadyExistsError -f $Id)
+            }
         }
-        elseif (Test-LabImage @PSBoundParameters)
-        {
-            throw ($localized.ImageAlreadyExistsError -f $Id)
+        else{
+            if ((Test-LabImage @PSBoundParameters) -and $Force) {
+                $image = Get-LabImage @PSBoundParameters
+                # if($Suffix) {
+                #     $suffixPath = $image.ImagePath.Replace(".vhdx", "_${Suffix}.vhdx")
+                #     Write-Verbose -Message ($localized.RemovingDiskImage -f $suffixPath)
+                #     [ref] $null = Remove-Item -Path $suffixPath -Force -ErrorAction Stop
+                # }
+                Write-Verbose -Message ($localized.RemovingDiskImage -f $image.ImagePath)
+                [ref] $null = Remove-Item -Path $image.ImagePath -Force -ErrorAction Stop
+            }
+            elseif (Test-LabImage @PSBoundParameters)
+            {
+                throw ($localized.ImageAlreadyExistsError -f $Id)
+            }
         }
 
         ## Check Dism requirement (if present) #167
@@ -211,12 +251,18 @@ function New-LabImage {
                 {
                     $expandLabImageParams['PackageLocale'] = $media.CustomData.PackageLocale
                 }
+                if ($CustomWIMCommands) {
+                    $expandLabImageParams['Commands'] = $CustomWIMCommands
+                }
+                if ($DeleteDefender) {
+                    $expandLabImageParams['DeleteDefender'] = $DeleteDefender
+                }
 
                 Expand-LabImage @expandLabImageParams
 
                 ## Apply hotfixes (Add-DiskImageHotfix)
                 $addDiskImageHotfixParams = @{
-                    Id = $Id
+                    Id = $OriginalId
                     Vhd = $image
                     PartitionStyle = $partitionStyle
                 }
@@ -224,10 +270,12 @@ function New-LabImage {
                 {
                     $addDiskImageHotfixParams['ConfigurationData'] = $ConfigurationData
                 }
+
                 Add-DiskImageHotfix @addDiskImageHotfixParams
 
                 ## Configure boot volume (Set-DiskImageBootVolume)
                 Set-DiskImageBootVolume -Vhd $image -PartitionStyle $partitionStyle
+
             }
             catch
             {
@@ -251,4 +299,4 @@ function New-LabImage {
         return (Get-LabImage $PSBoundParameters)
 
     } #end process
-} #end function New-LabImage
+}

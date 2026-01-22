@@ -1,4 +1,4 @@
-function Set-LabVMDiskFileUnattendXml {
+﻿function Set-LabVMDiskFileUnattendXml {
 <#
     .SYNOPSIS
         Copies a node's unattent.xml to a VHD(X) file.
@@ -50,6 +50,7 @@ function Set-LabVMDiskFileUnattendXml {
             Timezone = $node.Timezone;
             RegisteredOwner = $node.RegisteredOwner;
             RegisteredOrganization = $node.RegisteredOrganization;
+            ExecuteCommand = $node.UnattendSpecializeCommands;
         }
         Write-Verbose -Message $localized.SettingAdministratorPassword;
 
@@ -66,7 +67,8 @@ function Set-LabVMDiskFileUnattendXml {
         ## TODO: We probably need to be localise the \Windows\ (%ProgramFiles% has been done) directory?
         $unattendXmlPath = '{0}:\Windows\System32\Sysprep\Unattend.xml' -f $VhdDriveLetter;
         Write-Verbose -Message ($localized.AddingUnattendXmlFile -f $unattendXmlPath);
+        Write-Verbose -Message ($newUnattendXmlParams | ConvertTo-Json -Depth 10)
         [ref] $null = Set-UnattendXml @newUnattendXmlParams -Path $unattendXmlPath;
 
     } #end process
-} #end function
+}

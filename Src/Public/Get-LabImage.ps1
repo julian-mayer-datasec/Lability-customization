@@ -1,4 +1,4 @@
-function Get-LabImage {
+﻿function Get-LabImage {
 <#
     .SYNOPSIS
         Gets master/parent disk image.
@@ -24,6 +24,10 @@ function Get-LabImage {
         [Parameter(ValueFromPipeline,ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [System.String] $Id,
+
+        ## Custom Master VHDX
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.Boolean] $OwnMasterVHDX = $false,
 
         ## Lab DSC configuration data
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -62,6 +66,7 @@ function Get-LabImage {
             }
 
             $imagePath = Join-Path -Path $parentVhdPath -ChildPath $differencingVhdPath;
+
             if (Test-Path -Path $imagePath -PathType Leaf) {
 
                 $imageFileInfo = Get-Item -Path $imagePath;
@@ -83,5 +88,29 @@ function Get-LabImage {
 
         } #end foreach media
 
+        # MasterVHDX with suffix will not be found by Resolve/Get LabMedia
+        # Needs custom $Id passed from calling function
+        if ($OwnMasterVHDX) {
+            $imagePath = Join-Path -Path $parentVhdPath -ChildPath ($Id + ".vhdx");
+
+            if (Test-Path -Path $imagePath -PathType Leaf) {
+                $imageFileInfo = Get-Item -Path $imagePath;
+                $diskImage = Storage\Get-DiskImage -ImagePath $imageFileInfo.FullName;
+                $labImage = [PSCustomObject] @{
+                    Id = $Id;
+                    Attached = $diskImage.Attached;
+                    ImagePath = $diskImage.ImagePath;
+                    LogicalSectorSize = $diskImage.LogicalSectorSize;
+                    BlockSize = $diskImage.BlockSize;
+                    FileSize = $diskImage.FileSize;
+                    Size = $diskImage.Size;
+                    Generation = ($imagePath.Split('.')[-1]).ToUpper();
+                }
+
+                $labImage.PSObject.TypeNames.Insert(0, 'VirtualEngine.Lability.Image');
+                Write-Output -InputObject $labImage;
+            }
+        }
+
     } #end process
-} #end function Get-LabImage
+}

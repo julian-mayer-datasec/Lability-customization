@@ -1,4 +1,4 @@
-function Remove-LabVMDisk {
+﻿function Remove-LabVMDisk {
 <#
     .SYNOPSIS
         Removes lab VM disk file (VHDX) configuration.
@@ -20,6 +20,10 @@ function Remove-LabVMDisk {
         [Parameter(ValueFromPipelineByPropertyName)]
         [System.String] $NodeName = $Name,
 
+        ## Custom Master VHDX
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.Boolean] $OwnMasterVHDX = $false,
+
         ## Lab DSC configuration data
         [Parameter(ValueFromPipelineByPropertyName)]
         [System.Collections.Hashtable]
@@ -28,35 +32,59 @@ function Remove-LabVMDisk {
     )
     process {
 
-        if ($PSBoundParameters.ContainsKey('ConfigurationData')) {
+        # First check for custom images
+        $CustomId = $Media + "_" + $NodeName
+        $image = Get-LabImage -Id $CustomId -OwnMasterVHDX $true
 
-            $image = Get-LabImage -Id $Media -ConfigurationData $ConfigurationData -ErrorAction Stop;
-        }
-        else {
-
-            $image = Get-LabImage -Id $Media -ErrorAction Stop;
-        }
-
-        $environmentName = $ConfigurationData.NonNodeData.$($labDefaults.ModuleName).EnvironmentName;
-
-        ## If the parent image isn't there, the differencing VHD won't be either!
         if ($image) {
+                ## Ensure we look for the correct file extension (#182)
+                $vhdPath = Resolve-LabVMDiskPath -Name $Name -Generation $image.Generation -EnvironmentName $environmentName;
 
-            ## Ensure we look for the correct file extension (#182)
-            $vhdPath = Resolve-LabVMDiskPath -Name $Name -Generation $image.Generation -EnvironmentName $environmentName;
-
-            if (Test-Path -Path $vhdPath) {
-                ## Only attempt to remove the differencing disk if it's there (and xVHD will throw)
-                $vhd = @{
-                    Name = $Name;
-                    Path = Split-Path -Path $vhdPath -Parent;
-                    ParentPath = $image.ImagePath;
-                    Generation = $image.Generation;
-                    Type = 'Differencing';
-                    Ensure = 'Absent';
+                if (Test-Path -Path $vhdPath) {
+                    ## Only attempt to remove the differencing disk if it's there (and xVHD will throw)
+                    $vhd = @{
+                        Name = $Name;
+                        Path = Split-Path -Path $vhdPath -Parent;
+                        ParentPath = $image.ImagePath;
+                        Generation = $image.Generation;
+                        Type = 'Differencing';
+                        Ensure = 'Absent';
+                    }
+                    Import-LabDscResource -ModuleName xHyper-V -ResourceName MSFT_xVHD -Prefix VHD;
+                    [ref] $null = Invoke-LabDscResource -ResourceName VHD -Parameters $vhd;
                 }
-                Import-LabDscResource -ModuleName xHyper-V -ResourceName MSFT_xVHD -Prefix VHD;
-                [ref] $null = Invoke-LabDscResource -ResourceName VHD -Parameters $vhd;
+        }
+        else { # If no custom image, check for normal parent image
+            $image = $null
+            if ($PSBoundParameters.ContainsKey('ConfigurationData')) {
+
+                $image = Get-LabImage -Id $Media -ConfigurationData $ConfigurationData -ErrorAction Stop;
+            }
+            else {
+
+                $image = Get-LabImage -Id $Media -ErrorAction Stop;
+            }
+
+            $environmentName = $ConfigurationData.NonNodeData.$($labDefaults.ModuleName).EnvironmentName;
+
+            ## If the parent image isn't there, the differencing VHD won't be either!
+            if ($image) {
+                ## Ensure we look for the correct file extension (#182)
+                $vhdPath = Resolve-LabVMDiskPath -Name $Name -Generation $image.Generation -EnvironmentName $environmentName;
+
+                if (Test-Path -Path $vhdPath) {
+                    ## Only attempt to remove the differencing disk if it's there (and xVHD will throw)
+                    $vhd = @{
+                        Name = $Name;
+                        Path = Split-Path -Path $vhdPath -Parent;
+                        ParentPath = $image.ImagePath;
+                        Generation = $image.Generation;
+                        Type = 'Differencing';
+                        Ensure = 'Absent';
+                    }
+                    Import-LabDscResource -ModuleName xHyper-V -ResourceName MSFT_xVHD -Prefix VHD;
+                    [ref] $null = Invoke-LabDscResource -ResourceName VHD -Parameters $vhd;
+                }
             }
         }
 
@@ -82,4 +110,4 @@ function Remove-LabVMDisk {
         }
 
     } #end process
-} #end function
+}

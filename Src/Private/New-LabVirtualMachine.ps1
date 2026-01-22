@@ -1,4 +1,4 @@
-function New-LabVirtualMachine {
+﻿function New-LabVirtualMachine {
 <#
     .SYNOPSIS
         Creates and configures a new lab virtual machine.
@@ -67,6 +67,9 @@ function New-LabVirtualMachine {
         ## Display name includes any environment prefix/suffix
         $displayName = $node.NodeDisplayName;
 
+        $OwnMasterVHDX = [bool]($node.DISM_WIM_Commands -or $node.DeleteDefender24H2)
+        Write-Verbose -Message "Own Master-VHDX: $OwnMasterVHDX"
+
         if (-not (Test-ComputerName -ComputerName $node.NodeName.Split('.')[0])) {
 
             throw ($localized.InvalidComputerNameError -f $node.NodeName);
@@ -122,9 +125,18 @@ function New-LabVirtualMachine {
             Set-LabSwitch -Name $switchName -ConfigurationData $ConfigurationData;
         }
 
-        if (-not (Test-LabImage -Id $node.Media -ConfigurationData $ConfigurationData)) {
+        if ((-not (Test-LabImage -Id $node.Media -ConfigurationData $ConfigurationData)) -or ($node.DISM_WIM_Commands -or $node.DeleteDefender24H2)) {
+            Write-Verbose -Message "CREATE NEW LAB MASTER IMAGE:"
 
-            [ref] $null = New-LabImage -Id $node.Media -ConfigurationData $ConfigurationData;
+            if ($node.DISM_WIM_Commands -or $node.DeleteDefender24H2) {
+                Write-Verbose -Message "DEFENDER SPECIAL IMAGE"
+                [ref] $null = New-LabImage -Force -Id $node.Media -Suffix $nodeName -ConfigurationData $ConfigurationData -CustomWIMCommands $node.DISM_WIM_Commands -DeleteDefender ([bool]($node.DeleteDefender24H2 -as [bool]));
+            }
+            else {
+                Write-Verbose -Message "NORMAL IMAGE"
+                [ref] $null = New-LabImage -Id $node.Media -ConfigurationData $ConfigurationData;
+            }
+
         }
 
         Write-Verbose -Message ($localized.ResettingVMConfiguration -f 'VHDX', "$displayName.vhdx");
@@ -133,7 +145,9 @@ function New-LabVirtualMachine {
             NodeName = $nodeName;
             Media = $node.Media;
             ConfigurationData = $ConfigurationData;
+            OwnMasterVHDX = $OwnMasterVHDX
         }
+
         Reset-LabVMDisk @resetLabVMDiskParams -ErrorAction Stop;
 
         Write-Verbose -Message ($localized.SettingVMConfiguration -f 'VM', $displayName);
@@ -200,7 +214,8 @@ function New-LabVirtualMachine {
 
                 $setLabVMDiskFileParams['ProductKey'] = $media.CustomData.ProductKey;
             }
-            Set-LabVMDiskFile @setLabVMDiskFileParams -FeedCredential $feedCredential;
+
+            Set-LabVMDiskFile @setLabVMDiskFileParams -FeedCredential $feedCredential -OwnMasterVHDX $OwnMasterVHDX;
 
         } #end Windows VMs
 
@@ -226,4 +241,4 @@ function New-LabVirtualMachine {
         Write-Output -InputObject (Hyper-V\Get-VM -Name $displayName);
 
     } #end process
-} #end function
+}

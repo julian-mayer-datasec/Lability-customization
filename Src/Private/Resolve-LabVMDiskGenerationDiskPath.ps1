@@ -1,4 +1,4 @@
-function Resolve-LabVMGenerationDiskPath {
+﻿function Resolve-LabVMGenerationDiskPath {
 <#
     .SYNOPSIS
         Resolves the specified VM name's target VHD/X path.
@@ -14,6 +14,10 @@ function Resolve-LabVMGenerationDiskPath {
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [System.String] $Media,
 
+        ## Custom Master VHDX
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.Boolean] $OwnMasterVHDX = $false,
+
         ## Lab DSC configuration data
         [Parameter(Mandatory, ValueFromPipeline)]
         [System.Collections.Hashtable]
@@ -22,7 +26,21 @@ function Resolve-LabVMGenerationDiskPath {
     )
     process {
 
-        $image = Get-LabImage -Id $Media -ConfigurationData $ConfigurationData;
+        if ($OwnMasterVHDX) {
+            #skip get lab image, dirty fix
+            $vhdxName = "$($Media)_$($NodeName)"
+            $hostDefaults = Get-ConfigurationData -Configuration Host;
+            $vhdxBasePath = $hostDefaults.ParentVhdPath;
+            $image =
+            @{
+                "Id" = $Media
+                "ImagePath" = "${vhdxBasePath}\${vhdxName}.vhdx"
+                "Generation" = "VHDX"
+            }
+        }
+        else {
+            $image = Get-LabImage -Id $Media -ConfigurationData $ConfigurationData;
+        }
 
         $resolveLabVMDiskPathParams = @{
             Name            = $Name;
@@ -34,4 +52,4 @@ function Resolve-LabVMGenerationDiskPath {
         return $vhdPath;
 
     } #end process
-} #end function
+}

@@ -1,4 +1,4 @@
-function Set-LabVMDiskFile {
+﻿function Set-LabVMDiskFile {
 <#
     .SYNOPSIS
         Copies Lability files to a node's VHD(X) file.
@@ -56,7 +56,11 @@ function Set-LabVMDiskFile {
         [AllowNull()]
         [System.Management.Automation.PSCredential]
         [System.Management.Automation.CredentialAttribute()]
-        $FeedCredential
+        $FeedCredential,
+
+        ## Custom Master VHDX
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [System.Boolean] $OwnMasterVHDX = $false
     )
     process {
 
@@ -70,7 +74,9 @@ function Set-LabVMDiskFile {
             Name = $node.NodeDisplayName;
             Media = $node.Media;
             ConfigurationData = $ConfigurationData;
+            OwnMasterVHDX = $OwnMasterVHDX;
         }
+
         $vhdPath = Resolve-LabVMGenerationDiskPath @resolveLabVMGenerationDiskPathParams;
 
         ## Disable BitLocker fixed drive write protection (if enabled)
@@ -125,4 +131,4 @@ function Set-LabVMDiskFile {
         }
 
     } #end process
-} #end function Set-LabVMDiskFile
+}
