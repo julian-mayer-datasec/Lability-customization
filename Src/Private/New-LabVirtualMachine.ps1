@@ -67,7 +67,7 @@
         ## Display name includes any environment prefix/suffix
         $displayName = $node.NodeDisplayName;
 
-        $OwnMasterVHDX = [bool]($node.DISM_WIM_Commands -or $node.DeleteDefender24H2)
+        $OwnMasterVHDX = [bool]($node.DISM_WIM_Commands -or $node.DeleteDefender)
         Write-Verbose -Message "Own Master-VHDX: $OwnMasterVHDX"
 
         if (-not (Test-ComputerName -ComputerName $node.NodeName.Split('.')[0])) {
@@ -125,12 +125,12 @@
             Set-LabSwitch -Name $switchName -ConfigurationData $ConfigurationData;
         }
 
-        if ((-not (Test-LabImage -Id $node.Media -ConfigurationData $ConfigurationData)) -or ($node.DISM_WIM_Commands -or $node.DeleteDefender24H2)) {
+        if ((-not (Test-LabImage -Id $node.Media -ConfigurationData $ConfigurationData)) -or ($node.DISM_WIM_Commands -or $node.DeleteDefender)) {
             Write-Verbose -Message "CREATE NEW LAB MASTER IMAGE:"
 
-            if ($node.DISM_WIM_Commands -or $node.DeleteDefender24H2) {
+            if ($node.DISM_WIM_Commands -or $node.DeleteDefender) {
                 Write-Verbose -Message "DEFENDER SPECIAL IMAGE"
-                [ref] $null = New-LabImage -Force -Id $node.Media -Suffix $nodeName -ConfigurationData $ConfigurationData -CustomWIMCommands $node.DISM_WIM_Commands -DeleteDefender ([bool]($node.DeleteDefender24H2 -as [bool]));
+                [ref] $null = New-LabImage -Force -Id $node.Media -Suffix $nodeName -ConfigurationData $ConfigurationData -CustomWIMCommands $node.DISM_WIM_Commands -DeleteDefender ([bool]($node.DeleteDefender -as [bool]));
             }
             else {
                 Write-Verbose -Message "NORMAL IMAGE"
